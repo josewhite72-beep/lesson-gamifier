@@ -636,14 +636,32 @@ GAME TYPE: ${gi.name} — ${gi.desc}
 GRADE LEVEL: Grade ${selectedGrade}
 LANGUAGE: ${selectedLang}
 
-REQUIREMENTS:
-1. Extract from the lesson plan: scenario, theme, specific objectives, skills, and learning outcomes
-2. Design game mechanics tightly around those elements — every question/card/scene must reflect the actual lesson content
-3. Generate a complete single-file HTML with ALL CSS and JS embedded — no external dependencies
-4. Works 100% offline and online
-5. Include: title derived from the theme, clear instructions in ${selectedLang}, at least 10 game items derived from lesson content, score/progress tracking, win state, replay button
-6. Age-appropriate design: bright large UI for PreK-2, more structured for 3-6
-7. Footer: "Lesson Gamifier Agent · MEDUCA · Grade ${selectedGrade} · ${selectedLang}"
+STEP 1 — EXTRACT FIRST (do this mentally before writing any HTML):
+Read the lesson plan carefully and identify EXACTLY:
+- Theme: copy it verbatim from the document
+- Scenario: copy or summarize in 1 sentence from the document
+- Objectives: list them exactly as written in the document
+- Key vocabulary / concepts: extract every specific word, term, or idea mentioned
+- Skills: as stated in the document
+- Learning outcomes: as stated in the document
+
+STEP 2 — FIDELITY RULE (non-negotiable):
+ALL game content (questions, cards, scenes, words, characters, settings) MUST come ONLY from what you extracted in Step 1.
+Do NOT invent topics, vocabulary, or scenarios not present in the lesson plan.
+If the lesson is about "Community Helpers" → every question is about Community Helpers.
+If the lesson is about "The Water Cycle" → every card, word, and scene is about The Water Cycle.
+A reader comparing the game to the lesson plan must be able to trace every single game item back to something explicitly in the plan.
+ZERO improvisation on theme or content.
+
+STEP 3 — BUILD THE GAME:
+3a. Generate a complete single-file HTML with ALL CSS and JS embedded — no external dependencies
+3b. Works 100% offline and online
+3c. Title derived directly from the lesson theme (verbatim or very close)
+3d. Instructions in ${selectedLang}
+3e. At least 10 game items, all traceable to the lesson content
+3f. Score/progress tracking, win state, replay button
+3g. Age-appropriate design: bright large UI for PreK-2, more structured for 3-6
+3h. Footer: "Lesson Gamifier Agent · MEDUCA · Grade ${selectedGrade} · ${selectedLang}"
 
 GAME-SPECIFIC RULES:
 ${selectedGame === 'quiz' ? '- 10 multiple-choice questions (4 options each)\n- Immediate correct/incorrect feedback with explanation\n- Progress bar showing question number\n- Final score with star rating (3 stars = 90%+, 2 = 70%+, 1 = pass)' : ''}
