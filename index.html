@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a56db">
+<meta name="description" content="Convierte lesson plans en juegos HTML interactivos para el aula">
+<title>Lesson Gamifier Agent</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- PDF.js for PDF text extraction -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<style>
+:root {
+  --blue: #1a56db;
+  --blue-light: #e8f0fe;
+  --blue-dark: #1341a8;
+  --green: #0e9f6e;
+  --green-light: #e6f7f1;
+  --purple: #7e3af2;
+  --purple-light: #f0ebff;
+  --amber: #d97706;
+  --amber-light: #fffbeb;
+  --coral: #e02424;
+  --coral-light: #fdf2f2;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-400: #9ca3af;
+  --gray-600: #4b5563;
+  --gray-800: #1f2937;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-800);
+  min-height: 100vh;
+  padding-bottom: 2rem;
+}
+
+/* Header */
+.app-header {
+  background: var(--blue);
+  color: white;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+}
+.app-header .logo { font-size: 24px; }
+.app-header h1 { font-size: 17px; font-weight: 600; line-height: 1.2; }
+.app-header .tagline { font-size: 11px; opacity: 0.8; margin-top: 1px; }
+.install-btn {
+  margin-left: auto;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.4);
+  color: white;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  display: none;
+}
+.install-btn.visible { display: block; }
+
+/* Main layout */
+.container { max-width: 640px; margin: 0 auto; padding: 1.25rem; }
+
+/* Cards */
+.card {
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Upload area */
+.upload-area {
+  border: 2px dashed var(--gray-200);
+  border-radius: var(--radius);
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.upload-area:hover, .upload-area.drag-over {
+  border-color: var(--blue);
+  background: var(--blue-light);
+}
+.upload-area input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.upload-icon { font-size: 36px; margin-bottom: 8px; }
+.upload-text { font-size: 14px; color: var(--gray-600); }
+.upload-hint { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+
+.file-selected {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--green-light);
+  border-radius: var(--radius-sm);
+  margin-top: 10px;
+}
+.file-selected.visible { display: flex; }
+.file-name { font-size: 13px; font-weight: 500; color: var(--green); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-clear { background: none; border: none; color: var(--coral); font-size: 18px; cursor: pointer; padding: 0 4px; }
+
+/* OR divider */
+.or-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 12px 0; color: var(--gray-400); font-size: 12px;
+}
+.or-divider::before, .or-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--gray-200);
+}
+
+textarea.plan-text {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--gray-800);
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color 0.15s;
+}
+textarea.plan-text:focus { outline: none; border-color: var(--blue); }
+textarea.plan-text::placeholder { color: var(--gray-400); }
+
+/* Grade pills */
+.grade-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.grade-pill {
+  padding: 7px 14px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 20px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.grade-pill:hover { border-color: var(--blue); color: var(--blue); }
+.grade-pill.selected {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: white;
+}
+
+/* Language pills */
+.lang-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.lang-pill {
+  padding: 7px 16px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 20px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.lang-pill:hover { border-color: var(--purple); color: var(--purple); }
+.lang-pill.selected { border-color: var(--purple); background: var(--purple); color: white; }
+
+/* Game type grid */
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.game-card {
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.game-card:hover { border-color: var(--blue); }
+.game-card.selected {
+  border-color: var(--blue);
+  background: var(--blue-light);
+}
+.game-card .gicon { font-size: 24px; flex-shrink: 0; }
+.game-card .ginfo .gname { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+.game-card .ginfo .gdesc { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
+.game-card.selected .gname { color: var(--blue); }
+
+/* Generate button */
+.generate-btn {
+  width: 100%;
+  padding: 15px;
+  background: var(--blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.generate-btn:hover { background: var(--blue-dark); }
+.generate-btn:disabled { background: var(--gray-400); cursor: not-allowed; }
+
+/* Progress */
+.progress-wrap { display: none; margin-bottom: 1rem; }
+.progress-wrap.visible { display: block; }
+.progress-bar-bg {
+  height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; margin-bottom: 8px;
+}
+.progress-bar-fill {
+  height: 100%; background: var(--blue); border-radius: 3px;
+  transition: width 0.4s ease;
+  width: 0%;
+}
+.progress-msg { font-size: 13px; color: var(--gray-600); text-align: center; }
+
+/* History */
+.history-list { display: flex; flex-direction: column; gap: 8px; }
+.history-empty { font-size: 13px; color: var(--gray-400); text-align: center; padding: 1.5rem 0; }
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: white;
+}
+.history-item .hicon { font-size: 20px; flex-shrink: 0; }
+.history-item .hinfo { flex: 1; min-width: 0; }
+.history-item .htitle { font-size: 13px; font-weight: 600; color: var(--gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-item .hmeta { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+.history-item .hdl {
+  background: var(--green);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.history-item .hdl:hover { background: #0b7a55; }
+.history-item .hdel {
+  background: none; border: none; color: var(--gray-400); font-size: 16px; cursor: pointer; padding: 4px; flex-shrink: 0;
+}
+.history-item .hdel:hover { color: var(--coral); }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--gray-800);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: transform 0.3s ease;
+  z-index: 999;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.error { background: var(--coral); }
+.toast.success { background: var(--green); }
+
+/* Endpoint config */
+.config-row {
+  display: flex; gap: 8px; align-items: center; margin-top: 10px;
+}
+.config-input {
+  flex: 1; padding: 8px 10px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--gray-800);
+}
+.config-input:focus { outline: none; border-color: var(--blue); }
+.config-save {
+  padding: 8px 14px;
+  background: var(--blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="logo">🎮</div>
+  <div>
+    <h1>Lesson Gamifier Agent</h1>
+    <div class="tagline">MEDUCA · AOA · PreK–Grade 6</div>
+  </div>
+  <button class="install-btn" id="installBtn" onclick="installApp()">⬇ Instalar</button>
+</div>
+
+<div class="container">
+
+  <!-- Step 1: Lesson Plan -->
+  <div class="card">
+    <div class="card-title">📄 Paso 1 — Lesson plan</div>
+
+    <div class="upload-area" id="uploadArea">
+      <input type="file" id="fileInput" accept=".pdf,.txt,.doc,.docx" onchange="handleFile(event)">
+      <div class="upload-icon">📁</div>
+      <div class="upload-text">Toca para subir PDF o documento</div>
+      <div class="upload-hint">PDF, TXT · máx 10 MB</div>
+    </div>
+
+    <div class="file-selected" id="fileSelected">
+      <span>📄</span>
+      <span class="file-name" id="fileName"></span>
+      <button class="file-clear" onclick="clearFile()" title="Quitar archivo">×</button>
+    </div>
+
+    <div class="or-divider">o escribe / pega el plan</div>
+
+    <textarea class="plan-text" id="planText" placeholder="Theme: Animals and habitats&#10;Grade: 3rd&#10;Objectives: Students identify 6 animals and match them to their habitats&#10;Skills: Vocabulary, reading&#10;Outcomes: Students describe habitats using 3+ adjectives"></textarea>
+  </div>
+
+  <!-- Step 2: Grade + Language -->
+  <div class="card">
+    <div class="card-title">🎓 Paso 2 — Grado</div>
+    <div class="grade-grid" id="gradeGrid">
+      <div class="grade-pill" onclick="selectGrade(this)" data-g="PreK">PreK</div>
+      <div class="grade-pill" onclick="selectGrade(this)" data-g="Kinder">Kinder</div>
+      <div class="grade-pill" onclick="selectGrade(this)" data-g="1">1°</div>
+      <div class="grade-pill" onclick="selectGrade(this)" data-g="2">2°</div>
+      <div class="grade-pill selected" onclick="selectGrade(this)" data-g="3">3°</div>
+      <div class="grade-pill" onclick="selectGrade(this)" data-g="4">4°</div>
+      <div class="grade-pill" onclick="selectGrade(this)" data-g="5">5°</div>
+      <div class="grade-pill" onclick="selectGrade(this)" data-g="6">6°</div>
+    </div>
+
+    <div class="card-title" style="margin-top:1.25rem;">🌐 Idioma del juego</div>
+    <div class="lang-grid">
+      <div class="lang-pill selected" onclick="selectLang(this)" data-l="English">English</div>
+      <div class="lang-pill" onclick="selectLang(this)" data-l="Español">Español</div>
+      <div class="lang-pill" onclick="selectLang(this)" data-l="Bilingual">Bilingual</div>
+    </div>
+  </div>
+
+  <!-- Step 3: Game Type -->
+  <div class="card">
+    <div class="card-title">🕹️ Paso 3 — Tipo de juego</div>
+    <div class="game-grid">
+      <div class="game-card selected" onclick="selectGame(this)" data-type="quiz">
+        <div class="gicon">🎯</div>
+        <div class="ginfo">
+          <div class="gname">Quiz / Trivia</div>
+          <div class="gdesc">Preguntas por rondas</div>
+        </div>
+      </div>
+      <div class="game-card" onclick="selectGame(this)" data-type="roleplay">
+        <div class="gicon">🎭</div>
+        <div class="ginfo">
+          <div class="gname">Scenario Roleplay</div>
+          <div class="gdesc">Decisiones y diálogos</div>
+        </div>
+      </div>
+      <div class="game-card" onclick="selectGame(this)" data-type="rpg">
+        <div class="gicon">⚔️</div>
+        <div class="ginfo">
+          <div class="gname">Mini-RPG</div>
+          <div class="gdesc">Aventura de texto</div>
+        </div>
+      </div>
+      <div class="game-card" onclick="selectGame(this)" data-type="board">
+        <div class="gicon">🎲</div>
+        <div class="ginfo">
+          <div class="gname">Board Game</div>
+          <div class="gdesc">Tablero con casillas</div>
+        </div>
+      </div>
+      <div class="game-card" onclick="selectGame(this)" data-type="word">
+        <div class="gicon">📝</div>
+        <div class="ginfo">
+          <div class="gname">Word Game</div>
+          <div class="gdesc">Match, fill, unscramble</div>
+        </div>
+      </div>
+      <div class="game-card" onclick="selectGame(this)" data-type="flashcard">
+        <div class="gicon">🃏</div>
+        <div class="ginfo">
+          <div class="gname">Flashcard Game</div>
+          <div class="gdesc">Tarjetas interactivas</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate -->
+  <button class="generate-btn" id="generateBtn" onclick="generateGame()">
+    <span>✦</span> Generar juego
+  </button>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+    <div class="progress-msg" id="progressMsg">Analizando lesson plan...</div>
+  </div>
+
+  <!-- History -->
+  <div class="card">
+    <div class="card-title">📦 Juegos generados</div>
+    <div class="history-list" id="historyList">
+      <div class="history-empty">Aún no has generado ningún juego</div>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="card">
+    <div class="card-title">⚙️ Configuración — Endpoint API</div>
+    <div style="font-size:12px;color:var(--gray-600);margin-bottom:6px;">URL de tu proxy DeepSeek en Vercel (ej: https://tu-app.vercel.app/api/chat)</div>
+    <div class="config-row">
+      <input class="config-input" type="url" id="endpointInput" placeholder="https://tu-app.vercel.app/api/chat">
+      <button class="config-save" onclick="saveEndpoint()">Guardar</button>
+    </div>
+    <div style="font-size:11px;color:var(--gray-400);margin-top:6px;" id="endpointStatus"></div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// State
+let selectedGrade = '3';
+let selectedLang = 'English';
+let selectedGame = 'quiz';
+let extractedText = '';
+let history = JSON.parse(localStorage.getItem('gamifier_history') || '[]');
+let deferredPrompt = null;
+
+const GAME_INFO = {
+  quiz:      { icon: '🎯', name: 'Quiz / Trivia',     desc: 'Preguntas por rondas con puntaje y feedback inmediato' },
+  roleplay:  { icon: '🎭', name: 'Scenario Roleplay', desc: 'Árbol de decisiones ramificadas con consecuencias' },
+  rpg:       { icon: '⚔️', name: 'Mini-RPG',          desc: 'Aventura de texto con 3 escenarios y vocabulario coleccionable' },
+  board:     { icon: '🎲', name: 'Board Game',         desc: 'Tablero 2 jugadores con dados, casillas especiales y preguntas' },
+  word:      { icon: '📝', name: 'Word Game',          desc: 'Match + fill-in-the-blank + unscramble en un solo juego' },
+  flashcard: { icon: '🃏', name: 'Flashcard Game',     desc: 'Tarjetas flip con autoevaluación y seguimiento de progreso' }
+};
+
+// Init
+window.addEventListener('load', () => {
+  renderHistory();
+  const saved = localStorage.getItem('gamifier_endpoint');
+  if (saved) {
+    document.getElementById('endpointInput').value = saved;
+    document.getElementById('endpointStatus').textContent = '✓ Endpoint guardado: ' + saved;
+  }
+});
+
+// PWA Install
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBtn').classList.add('visible');
+});
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('installBtn').classList.remove('visible');
+  });
+}
+
+// Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// Selections
+function selectGrade(el) {
+  document.querySelectorAll('.grade-pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedGrade = el.dataset.g;
+}
+function selectLang(el) {
+  document.querySelectorAll('.lang-pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedLang = el.dataset.l;
+}
+function selectGame(el) {
+  document.querySelectorAll('.game-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedGame = el.dataset.type;
+}
+
+// File handling
+const uploadArea = document.getElementById('uploadArea');
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadArea.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+});
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+async function processFile(file) {
+  if (file.size > 10 * 1024 * 1024) { showToast('Archivo muy grande (máx 10 MB)', 'error'); return; }
+
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSelected').classList.add('visible');
+
+  if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+    showToast('Extrayendo texto del PDF...', '');
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(s => s.str).join(' ') + '\n';
+      }
+      extractedText = text.trim();
+      document.getElementById('planText').value = extractedText;
+      showToast(`PDF extraído (${pdf.numPages} página${pdf.numPages > 1 ? 's' : ''})`, 'success');
+    } catch (err) {
+      showToast('Error leyendo PDF: ' + err.message, 'error');
+      clearFile();
+    }
+  } else {
+    const text = await file.text();
+    extractedText = text;
+    document.getElementById('planText').value = text;
+    showToast('Documento cargado', 'success');
+  }
+}
+
+function clearFile() {
+  extractedText = '';
+  document.getElementById('fileSelected').classList.remove('visible');
+  document.getElementById('fileName').textContent = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('planText').value = '';
+}
+
+// Endpoint
+function saveEndpoint() {
+  const url = document.getElementById('endpointInput').value.trim();
+  if (!url) { showToast('Ingresa la URL del endpoint', 'error'); return; }
+  localStorage.setItem('gamifier_endpoint', url);
+  document.getElementById('endpointStatus').textContent = '✓ Guardado: ' + url;
+  showToast('Endpoint guardado', 'success');
+}
+
+// Progress
+function setProgress(pct, msg) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressMsg').textContent = msg;
+}
+
+// Generate
+async function generateGame() {
+  const lessonText = document.getElementById('planText').value.trim();
+  if (!lessonText) { showToast('Agrega el lesson plan primero', 'error'); return; }
+
+  const endpoint = localStorage.getItem('gamifier_endpoint');
+  if (!endpoint) { showToast('Configura el endpoint API primero ↓', 'error'); return; }
+
+  const gi = GAME_INFO[selectedGame];
+
+  const systemPrompt = `You are an expert educational game designer for Panamanian elementary school (PreK–Grade 6), specialized in the AOA (Activity-Oriented Approach) methodology and MEDUCA curriculum.
+
+Your task: Read the lesson plan and generate a COMPLETE, STANDALONE HTML5 game file.
+
+GAME TYPE: ${gi.name} — ${gi.desc}
+GRADE LEVEL: Grade ${selectedGrade}
+LANGUAGE: ${selectedLang}
+
+REQUIREMENTS:
+1. Extract from the lesson plan: scenario, theme, specific objectives, skills, and learning outcomes
+2. Design game mechanics tightly around those elements — every question/card/scene must reflect the actual lesson content
+3. Generate a complete single-file HTML with ALL CSS and JS embedded — no external dependencies
+4. Works 100% offline and online
+5. Include: title derived from the theme, clear instructions in ${selectedLang}, at least 10 game items derived from lesson content, score/progress tracking, win state, replay button
+6. Age-appropriate design: bright large UI for PreK-2, more structured for 3-6
+7. Footer: "Lesson Gamifier Agent · MEDUCA · Grade ${selectedGrade} · ${selectedLang}"
+
+GAME-SPECIFIC RULES:
+${selectedGame === 'quiz' ? '- 10 multiple-choice questions (4 options each)\n- Immediate correct/incorrect feedback with explanation\n- Progress bar showing question number\n- Final score with star rating (3 stars = 90%+, 2 = 70%+, 1 = pass)' : ''}
+${selectedGame === 'roleplay' ? '- Branching scenario with at least 4 nodes\n- Each node has narrative text + 2-3 choices\n- Each choice leads to consequence + learning feedback\n- Track "learning points" accumulated across choices' : ''}
+${selectedGame === 'rpg' ? '- Text adventure with 3 themed stages/rooms\n- Player collects vocabulary items\n- Each stage has a language challenge to unlock next stage\n- Narrative tied directly to lesson scenario and theme' : ''}
+${selectedGame === 'board' ? '- Visual board with 20 spaces using CSS grid or flex\n- 2 players take turns (Player 1 / Player 2)\n- Dice roll button (1-6)\n- Special spaces: question (blue), bonus +2 (green), lose turn (red)\n- Question cards from lesson content' : ''}
+${selectedGame === 'word' ? '- Three mini-activities in sequence:\n  1. Word Match (click pairs)\n  2. Fill in the blank (4 sentences from lesson)\n  3. Unscramble (6 key vocabulary words)\n- Progress through activities with Next button\n- Final combined score' : ''}
+${selectedGame === 'flashcard' ? '- 12 flashcards: front = English word/phrase, back = definition or image description\n- Flip animation using CSS transform\n- Self-rate buttons: Know it ✓ / Still learning ↺\n- Mastery bar showing % known\n- Shuffle button' : ''}
+
+OUTPUT: Return ONLY the complete HTML. No markdown, no backticks, no explanation. Start with <!DOCTYPE html>.`;
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> Generando...';
+  document.getElementById('progressWrap').classList.add('visible');
+  setProgress(10, 'Analizando lesson plan...');
+
+  try {
+    setProgress(30, 'Diseñando estructura del juego...');
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `Here is the lesson plan:\n\n${lessonText}` }],
+        max_tokens: 8000
+      })
+    });
+
+    setProgress(80, 'Compilando HTML del juego...');
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    let html = (data.content || data.choices?.[0]?.message?.content || '').trim();
+    html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
+
+    if (!html.includes('<!DOCTYPE') && !html.includes('<html')) throw new Error('Respuesta inválida del API');
+
+    setProgress(100, '¡Juego generado!');
+
+    // Save to history
+    const entry = {
+      id: Date.now(),
+      title: extractTitle(html, lessonText),
+      type: selectedGame,
+      grade: selectedGrade,
+      lang: selectedLang,
+      icon: gi.icon,
+      date: new Date().toLocaleDateString('es-PA'),
+      html
+    };
+    history.unshift(entry);
+    if (history.length > 20) history = history.slice(0, 20);
+    localStorage.setItem('gamifier_history', JSON.stringify(history));
+    renderHistory();
+
+    showToast('✓ Juego generado y guardado', 'success');
+    downloadHTML(entry);
+
+  } catch (err) {
+    setProgress(0, '');
+    showToast('Error: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>✦</span> Generar juego';
+    setTimeout(() => document.getElementById('progressWrap').classList.remove('visible'), 2000);
+  }
+}
+
+function extractTitle(html, lesson) {
+  const m = html.match(/<title>(.*?)<\/title>/i);
+  if (m) return m[1];
+  const themeMatch = lesson.match(/theme[:\s]+([^\n]+)/i);
+  if (themeMatch) return themeMatch[1].trim();
+  return 'Juego ' + new Date().toLocaleDateString('es-PA');
+}
+
+function downloadHTML(entry) {
+  const blob = new Blob([entry.html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `game_${entry.type}_grade${entry.grade}_${entry.id}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// History
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!history.length) {
+    list.innerHTML = '<div class="history-empty">Aún no has generado ningún juego</div>';
+    return;
+  }
+  list.innerHTML = history.map(e => `
+    <div class="history-item">
+      <div class="hicon">${e.icon}</div>
+      <div class="hinfo">
+        <div class="htitle">${e.title}</div>
+        <div class="hmeta">${GAME_INFO[e.type]?.name || e.type} · Grade ${e.grade} · ${e.lang} · ${e.date}</div>
+      </div>
+      <button class="hdl" onclick="downloadHTML(history.find(h=>h.id===${e.id}))">⬇ HTML</button>
+      <button class="hdel" onclick="deleteHistory(${e.id})" title="Eliminar">×</button>
+    </div>
+  `).join('');
+}
+
+function deleteHistory(id) {
+  history = history.filter(h => h.id !== id);
+  localStorage.setItem('gamifier_history', JSON.stringify(history));
+  renderHistory();
+}
+
+// Toast
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.className = 'toast', 3000);
+}
+</script>
+</body>
+</html>
