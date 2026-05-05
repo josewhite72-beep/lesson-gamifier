@@ -110,6 +110,8 @@ textarea.field-input{min-height:72px;resize:vertical;line-height:1.5;}
 .config-input{flex:1;padding:8px 10px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;color:var(--gray-800);font-family:inherit;}
 .config-input:focus{outline:none;border-color:var(--blue);}
 .config-save{padding:8px 14px;background:var(--blue);color:white;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+.cache-btn{padding:8px 16px;background:var(--gray-100);border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-weight:500;color:var(--gray-800);cursor:pointer;font-family:inherit;transition:all 0.15s;}
+.cache-btn:hover{background:var(--coral);border-color:var(--coral);color:white;}
 /* Toast */
 .toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--gray-800);color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;transition:transform 0.3s ease;z-index:999;white-space:nowrap;pointer-events:none;}
 .toast.show{transform:translateX(-50%) translateY(0);}
@@ -229,6 +231,11 @@ textarea.field-input{min-height:72px;resize:vertical;line-height:1.5;}
       <button class="config-save" onclick="saveEndpoint()">Guardar</button>
     </div>
     <div style="font-size:11px;color:var(--gray-400);margin-top:6px;" id="endpointStatus"></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--gray-200);">
+      <div style="font-size:12px;color:var(--gray-600);margin-bottom:8px;">🗑️ Caché del Service Worker</div>
+      <button class="cache-btn" onclick="clearCache()">Borrar caché y recargar</button>
+      <div style="font-size:11px;color:var(--gray-400);margin-top:6px;" id="cacheStatus"></div>
+    </div>
   </div>
 </div>
 
@@ -484,6 +491,24 @@ function deleteHistory(id){
   renderHistory();
 }
 
+async function clearCache(){
+  const btn=document.querySelector('.cache-btn');
+  const status=document.getElementById('cacheStatus');
+  btn.textContent='⏳ Borrando...';btn.disabled=true;
+  try{
+    const keys=await caches.keys();
+    await Promise.all(keys.map(k=>caches.delete(k)));
+    if('serviceWorker' in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.unregister()));
+    }
+    status.textContent='✓ Caché borrada — recargando...';
+    setTimeout(()=>location.reload(true),1000);
+  }catch(err){
+    status.textContent='Error: '+err.message;
+    btn.textContent='Borrar caché y recargar';btn.disabled=false;
+  }
+}
 function showToast(msg,type=''){
   const t=document.getElementById('toast');
   t.textContent=msg;t.className='toast show'+(type?' '+type:'');
