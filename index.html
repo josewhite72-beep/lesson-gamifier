@@ -143,7 +143,7 @@ textarea.field-input{min-height:72px;resize:vertical;line-height:1.5;}
       <button class="file-clear" onclick="clearFile()">×</button>
     </div>
     <div class="or-divider">o pega el texto del plan</div>
-    <textarea class="plan-text" id="planText" placeholder="Scenario: Our Community News&#10;Theme: Reporting From the School!&#10;Learning Outcomes: Can ask and answer questions about community events...&#10;Key language: visited, happened, there was/were, What happened at...?"></textarea>
+    <textarea class="plan-text" id="planText" placeholder="Scenario: Schooldays&#10;Theme: Yesterday Was Wednesday&#10;Specific Objectives: Identify 10 key vocabulary words... / Produce 3-5 sentences using Past simple...&#10;Key language: yesterday, was, were, Wednesday, Yesterday was..., What day was it?"></textarea>
     <button class="extract-btn" id="extractBtn" onclick="extractFields()">🔍 Extraer campos clave del plan</button>
   </div>
 
@@ -154,9 +154,9 @@ textarea.field-input{min-height:72px;resize:vertical;line-height:1.5;}
     <div class="field-label">🎯 Scenario / Theme <span class="field-sub">(título del juego vendrá de aquí)</span></div>
     <input class="field-input" type="text" id="fieldTheme" placeholder="Ej: Our Community News — Reporting From the School!">
 
-    <div class="field-label">📋 Learning Outcomes <span class="field-sub">(uno por línea)</span></div>
-    <textarea class="field-input" id="fieldOutcomes" placeholder="Can ask and answer questions about community events&#10;Can describe past events using simple past forms&#10;Can write headlines and captions for a newsletter"></textarea>
-    <div class="field-hint">Cada pregunta/tarjeta del juego practicará uno de estos outcomes</div>
+    <div class="field-label">📋 Specific Objectives <span class="field-sub">(uno por línea — uno por skill)</span></div>
+    <textarea class="field-input" id="fieldOutcomes" placeholder="Identify 10 key vocabulary words in descriptions about the theme&#10;Read and understand 3-5 simple sentences about the theme&#10;Produce 3-5 sentences using Past simple with verb be&#10;Write 3-5 sentences using 5 vocabulary words from the theme"></textarea>
+    <div class="field-hint">Cada pregunta/tarjeta practicará uno de estos objetivos — uno por skill (Listening, Reading, Speaking, Writing)</div>
 
     <div class="field-label">💬 Key language / Vocabulary <span class="field-sub">(separado por comas)</span></div>
     <input class="field-input" type="text" id="fieldVocab" placeholder="visited, happened, there was, there were, What happened at...?, Last week...">
@@ -330,12 +330,12 @@ async function extractFields(){
         system:`You are a MEDUCA lesson plan reader. Extract exactly 3 fields and return ONLY a JSON object — no markdown, no explanation, no extra text:
 {
   "theme": "Scenario name — Theme name",
-  "outcomes": "outcome 1\noutcome 2\noutcome 3",
+  "outcomes": "Listening objective\nReading objective\nSpeaking objective\nWriting objective",
   "vocabulary": "word1, word2, phrase 1, phrase 2"
 }
 Rules:
 - theme: find the Scenario and Theme fields in the document and copy them verbatim joined with " — "
-- outcomes: find all Learning Outcomes and copy them exactly, one per line
+- outcomes: find the "Specific Objectives" section (one per skill: Listening, Reading, Speaking, Writing, Mediation) and copy each objective exactly as written, one per line. Do NOT use Learning Outcomes — use Specific Objectives only
 - vocabulary: extract ALL key vocabulary words, key phrases, and grammar structures mentioned anywhere (Simple past examples, Wh-questions, key verbs, topic nouns), comma-separated
 - Return ONLY the raw JSON object`,
         messages:[{role:'user',content:`Extract from this lesson plan:\n\n${text.substring(0,6000)}`}],
@@ -401,14 +401,14 @@ LANGUAGE: ${selectedLang}
 
 ===LESSON CONTENT — YOUR ONLY SOURCE===
 SCENARIO / THEME: ${theme}
-LEARNING OUTCOMES:
+SPECIFIC OBJECTIVES (one per skill):
 ${outcomes}
 KEY LANGUAGE & VOCABULARY: ${vocab}
 ===END===
 
 NON-NEGOTIABLE RULES:
 1. Game title MUST come directly from the SCENARIO/THEME — no invented themes
-2. Every question, card, word, sentence, and scene MUST use only the vocabulary and outcomes above
+2. Every question, card, word, sentence, and scene MUST use only the vocabulary and specific objectives above
 3. Nothing may appear in the game that is not in the lesson content above
 4. A teacher reading the game must immediately recognize their own lesson plan
 
@@ -431,7 +431,7 @@ OUTPUT: Return ONLY the complete HTML starting with <!DOCTYPE html>. No markdown
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         system:systemPrompt,
-        messages:[{role:'user',content:`Generate the ${gi.name} game using ONLY this content:\nTheme: ${theme}\nOutcomes:\n${outcomes}\nVocabulary: ${vocab}`}],
+        messages:[{role:'user',content:`Generate the ${gi.name} game using ONLY this content:\nTheme: ${theme}\nSpecific Objectives:\n${outcomes}\nVocabulary: ${vocab}`}],
         max_tokens:8000
       })
     });
