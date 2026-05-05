@@ -686,7 +686,7 @@ OUTPUT: Return ONLY the complete HTML. No markdown, no backticks, no explanation
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: systemPrompt,
-        messages: [{ role: 'user', content: `Here is the lesson plan:\n\n${lessonText}` }],
+        messages: [{ role: "user", content: `HERE IS THE LESSON PLAN YOU MUST USE. DO NOT DEVIATE FROM THIS CONTENT:\n\n===LESSON PLAN START===\n${lessonText}\n===LESSON PLAN END===\n\nNow generate the ${gi.name} game based EXCLUSIVELY on the lesson plan above. Every question, word, card, and scene must come directly from this document. The theme of the game must match the theme of this lesson plan exactly.` }],
         max_tokens: 8000
       })
     });
